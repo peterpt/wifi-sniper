@@ -4,23 +4,7 @@ path=$(pwd)
 trap ctrl_c INT
 function ctrl_c() {
 airmon-ng stop $devmon
-}
-
-chkbrand () {
-if [ ! -f $path/airdump ]
-then
-echo "Waiting for airodump"
-sleep 3
-chkbrand
-fi 
-ok=$(grep "$gmac" <$path/airdump )
-if [[ -z "$ok" ]]
-then
-chkbrand
-else
-mft=$(grep "$gmac" <$path/airdump | awk '{print$12}')
-killall airodump-ng >/dev/null 2>&1
-fi
+delf
 }
 
 dump () {
@@ -45,6 +29,7 @@ then
 echo " There is no $inp on the list , are U Stupid !!!"
 echo ""
 airmon-ng stop $devmon
+delf
 exit 1
 fi
 gmac=$(sed -n "$inp"p< $path/out | awk '{print $1}' | sed -e "s/:/-/g" | head -c 8)
@@ -59,6 +44,7 @@ then
 echo "Unable to find the brand of thos Access point"
 echo ""
 airmon-ng stop $devmon
+delf
 exit 1
 fi
 echo "The Brand name of $nchoice is $gman"
@@ -85,12 +71,14 @@ n|N|NO|no)
 echo "unable to start the attack without a specific configuration"
 echo ""
 airmon-ng stop $devmon
+delf
 exit 1
 ;;
 *)
 echo "Unspecified Selection"
 echo ""
 airmon-ng stop $devmon
+delf
 exit 1
 ;;
 esac
@@ -118,12 +106,14 @@ n|N|NO|no)
 echo "unable to start the attack without a specific configuration"
 echo ""
 airmon-ng stop $devmon
+delf
 exit 1
 ;;
 *)
 echo "Unspecified Selection"
 echo ""
 airmon-ng stop $devmon
+delf
 exit 1
 ;;
 esac
@@ -138,27 +128,33 @@ case $inp in
 y|y|yes|YES)
 echo "Starting Reaver with switches command"
 airmon-ng stop $devmon
+delf
 exit 1
 ;;
 n|N|NO|no)
 echo "Stopping and exiting"
 airmon-ng stop $devmon
+delf
 exit 1
 ;;
 *)
 echo "Choice not valid"
 airmon-ng stop $devmon
+delf
 exit 1
 ;;
 esac
 }
-
+delf (){
 rm -rf check >/dev/null 2>&1
 rm -rf devices >/dev/null 2>&1
 rm -rf wash >/dev/null 2>&1
 rm -rf waslog >/dev/null 2>&1
 rm -rf out >/dev/null 2>&1
 rm -rf airdump >/dev/null 2>&1
+rm -rf monitor >/dev/null 2>&1
+}
+delf
 echo "█╗    █╗█╗██████╗█╗  ██████╗██╗  █╗█╗█████╗██████╗████╗ "                   
 echo "█║    █║█║█╔════╝█║  █ ╔═══╝███╗ █║█║█╔══█╗█╔════╝█╔═ █╗"                   
 echo "█║    █║█║████╗  █║  ██████╗█╔█╗ █║█║█████╔████╗  ████╔╝"                   
@@ -209,3 +205,4 @@ echo "injection is working"
 dump
 fi
 airmon-ng stop $devmon
+delf
