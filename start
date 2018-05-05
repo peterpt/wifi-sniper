@@ -6,6 +6,107 @@ function ctrl_c() {
 airmon-ng stop $devmon
 delf
 }
+database () {
+cntd=$(wc -l < $path/database)
+echo "Current Database Entries:"
+echo ""
+for ((i=1; i<=cntd; i++))
+do
+var=$(sed -n "${i}p" <$path/database)
+echo "$i : $var"
+done
+echo ""
+echo "Witch entry do you want to edit or delete : (to cancel write exit)"
+echo -n "Select from 1 to $cntd : "
+read dataedit
+if [[ "$dataedit" == "exit" ]]
+then
+exit 1
+elif [[ "$dataedit" == "0" ]]
+then
+echo "Dont be stupid , there is no 0 in database to select"
+sleep 3
+clear
+database
+elif [[ "$dataedit" -gt "$cntd" ]]
+then
+echo "Dont be stupid , there is no $dataedit in database to select"
+sleep 3
+clear
+database
+elif [[ -z "$dataedit" ]]
+then
+echo "Nice choice , lets start all over again"
+sleep 3
+clear
+database
+fi
+sel=$(sed -n "${dataedit}p" <$path/database)
+edt=$(sed -n "${dataedit}p" <$path/database | awk '{$1=""; print $0}')
+apn=$(sed -n "${dataedit}p" <$path/database | awk '{print$1}')
+echo ""
+echo "Selected entry :"
+echo ""
+echo "$sel"
+echo ""
+echo "What do you want to do ?"
+echo ""
+echo "1 - Edit this line"
+echo "2 - Delete this line"
+echo "3 - Cancel & Exit"
+echo ""
+echo -n "Choose (1,2 or 3) : "
+read opt
+case $opt in
+1)
+echo ""
+echo "Write the new changes to this line without entering the AP Brand :"
+echo ""
+echo "Existing line : $edt"
+echo -n "Edit to : "
+read edit
+if [[ -z "$edit" ]]
+then
+echo "Nothing to be changed , exiting"
+exit 1
+fi
+sed -i "${dataedit}d" "$path/database"
+datab=$(stat -c %s $path/database)
+if [[ "$datab" == "0" ]]
+then
+echo "$apn $edit" > "$path/database"
+else
+echo "$apn $edit" >> "$path/database"
+fi
+echo ""
+echo "Database was edited with new values :"
+echo "FROM : $sel"
+echo "TO : $apn $edit"
+echo ""
+sleep 3
+echo "Exiting"
+exit 1
+;;
+2)
+sed -i "${dataedit}d" "$path/database"
+echo "done"
+datab=$(stat -c %s $path/database)
+if [[ "$datab" == "0" ]]
+then
+rm -rf "$path/database"
+fi
+sleep 3
+exit 1
+;;
+3)
+exit 1
+;;
+*)
+exit 1
+;;
+esac
+exit 1
+}
 
 dump () {
 echo ""
@@ -63,7 +164,7 @@ echo "Example 1 with direct pin : -p 12345678 -d 2 -N -E"
 echo "Example 2 : -t 10 -T 0.60 -N -E -w -K"
 echo ""
 echo "Write the switches for $gman"
-echo "Switches : "
+echo -n "Switches : "
 read swt
 echo "$gman $swt" > $path/database
 ;;
@@ -84,6 +185,7 @@ exit 1
 esac
 fi
 dbs=$(grep "$gman" < database | awk '{$1=""; print $0}')
+mny=$(grep "$gman" < database | wc -l )
 if [[ -z "$dbs" ]]
 then 
 echo "It was not found in database the switches for $gman , do you want to add the switches for reaver to this brand (y/n) ? "
@@ -120,6 +222,27 @@ esac
 fi
 echo "Looking in database for reaver switches to $gman"
 echo ""
+if [[ "$mny" -gt "1" ]]
+then
+grep -n "$gman" <$path/database | sed "s/\:.*//">$path/lsout
+scount=$(wc -l <$path/lsout)
+echo "Found all these switches for $gman :"
+echo ""
+for ((i=1; i<=scount; i++))
+do
+var=$(sed -n "${i}p" <$path/lsout)
+dbs=$(sed -n "${var}p" < $path/database | awk '{$1=""; print $0}')
+echo "$i : $dbs"
+done
+echo ""
+echo "Witch one do you want to use ?"
+echo ""
+echo -n "Select from 1 to $scount : "
+read rvst
+var=$(sed -n "${rvst}p" <$path/lsout)
+dbs=$(sed -n "${var}p" < $path/database | awk '{$1=""; print $0}')
+echo "you selected switch number $rvst : $dbs"
+else
 echo "Found this switch : $dbs"
 echo ""
 echo -n "Do you want to test it ? (y/n)"
@@ -144,24 +267,19 @@ delf
 exit 1
 ;;
 esac
+fi
 }
 delf (){
 rm -rf check >/dev/null 2>&1
 rm -rf devices >/dev/null 2>&1
 rm -rf wash >/dev/null 2>&1
-rm -rf waslog >/dev/null 2>&1
+rm -rf washlog >/dev/null 2>&1
 rm -rf out >/dev/null 2>&1
 rm -rf airdump >/dev/null 2>&1
 rm -rf monitor >/dev/null 2>&1
+rm -rf lsout >/dev/null 2>&1
 }
-delf
-echo "█╗    █╗█╗██████╗█╗  ██████╗██╗  █╗█╗█████╗██████╗████╗ "                   
-echo "█║    █║█║█╔════╝█║  █ ╔═══╝███╗ █║█║█╔══█╗█╔════╝█╔═ █╗"                   
-echo "█║    █║█║████╗  █║  ██████╗█╔█╗ █║█║█████╔████╗  ████╔╝"                   
-echo "█║ █╗ █║█║█╔══╝  █║  ╚════█║█║╚█╗█║█║█╔═══╝█╔══╝  █╔══█╗"                   
-echo "╚██╔██╔╝█║█║     █║  ██████║█║ ╚██║█║█║    ██████╗█║  █║"                   
-echo " ╚═╝╚═╝ ╚╝╚╝     ╚╝  ╚═════╝╚╝  ╚═╝╚╝╚╝    ╚═════╝╚╝  ╚╝" 
-rm -f devices
+nstart () {
 dev=$(iw dev | awk '$1=="Interface"{print $2}')
 cnt=$(iw dev | awk '$1=="Interface"{print $2}'| wc -l)
 if [[ -z $dev ]]
@@ -206,3 +324,49 @@ dump
 fi
 airmon-ng stop $devmon
 delf
+}	
+delf
+echo "█╗    █╗█╗██████╗█╗  ██████╗██╗  █╗█╗█████╗██████╗████╗ "                   
+echo "█║    █║█║█╔════╝█║  █ ╔═══╝███╗ █║█║█╔══█╗█╔════╝█╔═ █╗"                   
+echo "█║    █║█║████╗  █║  ██████╗█╔█╗ █║█║█████╔████╗  ████╔╝"                   
+echo "█║ █╗ █║█║█╔══╝  █║  ╚════█║█║╚█╗█║█║█╔═══╝█╔══╝  █╔══█╗"                   
+echo "╚██╔██╔╝█║█║     █║  ██████║█║ ╚██║█║█║    ██████╗█║  █║"                   
+echo " ╚═╝╚═╝ ╚╝╚╝     ╚╝  ╚═════╝╚╝  ╚═╝╚╝╚╝    ╚═════╝╚╝  ╚╝" 
+rm -f devices
+echo ""
+datab=$(stat -c %s $path/database)
+if [[ "$datab" == "0" ]]
+then
+rm -rf "$path/database" >/dev/null 2>&1
+fi
+if [ -f "$path/database" ]
+then
+echo "Select one of those options :"
+echo ""
+echo "1 - Normal Start"
+echo "2 - Edit/Delete Database"
+echo "3 - Exit"
+echo ""
+echo -n "Choose (1,2 or 3) : "
+read choice
+case $choice in
+1)
+nstart
+;;
+2)
+clear
+database
+;;
+3)
+delf
+exit 1
+;;
+*)
+echo "Choice not Available , exiting"
+delf
+exit 1
+;;
+esac
+else
+nstart
+fi
